@@ -7,6 +7,9 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
+        <TextBox Name="ProjectPathTextBox" HorizontalAlignment="Left" Margin="181,167,0,0" Text="TextBox" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <Button Name="AnalyzeButton" Content="Go" HorizontalAlignment="Left" Margin="241,217,0,0" VerticalAlignment="Top" Width="115" Click="Button_Click"/>
+        <Label Name="ErrorLabel" Content="Label" HorizontalAlignment="Left" Margin="115,285,0,0" VerticalAlignment="Top"/>
 
     </Grid>
 </Window>

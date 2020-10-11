@@ -12,6 +12,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Microsoft.CodeAnalysis;
+using Analysis;
+using System.IO;
 
 namespace CodeMetrics
 {
@@ -20,6 +23,29 @@ namespace CodeMetrics
     /// </summary>
     public partial class MainWindow : Window
     {
+        private List<string> RecurseDirectory(string filepath, string extension)
+        {
+            List<string> files = new List<string>();
+            foreach (var file in Directory.GetFiles(filepath))
+            {
+                if (file.EndsWith(extension))
+                {
+                    files.Add(file);
+                }
+            }
+            foreach (var directory in Directory.GetDirectories(filepath))
+            {
+                foreach (var file in RecurseDirectory(directory, extension))
+                {
+                    if (file.EndsWith(extension))
+                    {
+                        files.Add(file);
+                    }
+                }
+            }
+            return files;
+        }
+
         public MainWindow()
         {
             InitializeComponent();
