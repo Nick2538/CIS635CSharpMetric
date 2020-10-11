@@ -50,5 +50,16 @@ namespace CodeMetrics
         {
             InitializeComponent();
         }
+
+        private void MetricButton_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var file in RecurseDirectory(ProjectTextBox.Text, ".cs"))
+            {
+                CodeAnalyzer analyzer = new CodeAnalyzer(file);
+                double avg = analyzer.AverageMethodSize();
+                Dictionary<string, int> usages = analyzer.MethodUsage();
+                Console.WriteLine();
+            }
+        }
     }
 }

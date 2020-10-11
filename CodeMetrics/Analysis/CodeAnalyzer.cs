@@ -29,12 +29,12 @@ namespace Analysis
             Methods = new List<MethodDeclarationSyntax>(methods);
         }
 
-        public int RecurseBlockCount(BlockSyntax block)
+        public int RecurseBlockStatementCount(BlockSyntax block)
         {
             int statements = block.Statements.Count;
             foreach (var childBlock in block.DescendantNodes().OfType<BlockSyntax>().ToList())
             {
-                statements += RecurseBlockCount(childBlock);
+                statements += RecurseBlockStatementCount(childBlock);
             }
             return statements;
         }
@@ -45,7 +45,7 @@ namespace Analysis
             foreach (var method in Methods)
             {
                 BlockSyntax body = method.Body;
-                sum += RecurseBlockCount(body);
+                sum += RecurseBlockStatementCount(body);
             }
             if (Methods.Count == 0)
             {
@@ -57,6 +57,26 @@ namespace Analysis
             }
         }
 
+        public int RecurseBlockUsageCount(BlockSyntax block, SyntaxToken methodID, int initialCount)
+        {
+            int usages = initialCount;
+            foreach (var statement in block.Statements)
+            { 
+                foreach (var token in statement.DescendantTokens())
+                {
+                    if (token.Value.Equals(methodID.Value))
+                    {
+                        usages += 1;
+                    }
+                }
+            }
+            foreach (var childBlock in block.DescendantNodes().OfType<BlockSyntax>().ToList())
+            {
+                usages += RecurseBlockUsageCount(childBlock, methodID, 0);
+            }
+            return usages;
+        }
+
         public Dictionary<string, int> MethodUsage()
         {
             Dictionary<string, int> usages = new Dictionary<string, int>();
@@ -66,19 +86,9 @@ namespace Analysis
                 string methodName = methodID.ValueText;
                 if (!usages.ContainsKey(methodName))
                 {
-                    usages.Add(methodName, 0);
+                    usages[methodName] = 0;
                 }
-                BlockSyntax body = method.Body;
-                foreach (var statement in body.Statements)
-                {
-                    foreach(var token in statement.ChildTokens())
-                    {
-                        if (token.Equals(methodID))
-                        {
-                            usages.Add(methodName, usages[methodName] + 1);
-                        }
-                    }
-                }
+                usages[methodName] = RecurseBlockUsageCount(method.Body, methodID, usages[methodName]);
             }
             return usages;
         }

@@ -6,5 +6,8 @@
         xmlns:local="clr-namespace:CodeMetrics"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
-    <Grid/>
+    <Grid>
+        <TextBox Name="ProjectTextBox" HorizontalAlignment="Left" Margin="156,166,0,0" Text="" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <Button Name="MetricButton" Content="Go" HorizontalAlignment="Left" Margin="244,257,0,0" VerticalAlignment="Top" Click="MetricButton_Click" RenderTransformOrigin="0.483,0.509" Width="134"/>
+    </Grid>
 </Window>
