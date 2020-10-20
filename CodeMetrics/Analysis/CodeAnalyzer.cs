@@ -92,5 +92,20 @@ namespace Analysis
             }
             return usages;
         }
+
+        public int MethodUsage(MethodDeclarationSyntax method) 
+        {
+            SyntaxToken methodID = method.Identifier;
+            return RecurseBlockUsageCount(method.Body, methodID, 0);
+        }
+        public int MethodUsage(string methodName)
+        {
+            MethodDeclarationSyntax method = Methods.Find(m => m.Identifier.ValueText == methodName);
+            if (method != null)
+            {
+                return RecurseBlockUsageCount(method.Body, method.Identifier, 0);
+            }
+            return 0;
+        }
     }
 }
