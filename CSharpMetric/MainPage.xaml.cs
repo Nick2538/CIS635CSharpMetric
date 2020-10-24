@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,7 +18,7 @@ using Windows.UI.Xaml.Navigation;
 
 namespace CSharpMetric
 {
-   
+
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
@@ -56,18 +57,7 @@ namespace CSharpMetric
                 Boolean isAesthetic = false;
                 int containsFP = 0;
                 int methodCount = getMethodCount(fileLineByLine);
-                for (int lineParseCounter = 0; lineParseCounter <= linesOfCode; lineParseCounter++)
-                {
-                    //Execute methods on each line of code
-                    isAesthetic = aestheticCheck(fileLineByLine.ElementAt(lineParseCounter));
-
-                    if (isAesthetic)
-                    {
-                        // Increment counter and reset flag.
-                        aestheticLinesOfCode++;
-                        isAesthetic = false;
-                    }
-                }
+                aestheticCheck(fileLineByLine);
 
             }
             else
@@ -78,7 +68,7 @@ namespace CSharpMetric
 
         private int getMethodCount(IList<string> fileLineByLine)
         {
-            
+
             Boolean multiLineCommentCheck = false;
             int linesOfCode = fileLineByLine.Count;
             int methodCount = 0;
@@ -107,7 +97,7 @@ namespace CSharpMetric
                 //and method params. However, methods without a specified access modifier are set to private as default.
                 //We'll assume all methods have a specified access modifier
                 //A method has an access modifier, a (, a ), and a return value type.
-                
+
                 //First check for an access modifier
                 if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("public") > -1)
                 {
@@ -154,16 +144,16 @@ namespace CSharpMetric
 
 
                 //Check for () and access modifier
-                if((accessModPos > -1) && (openParPos > -1) && (closeParPos > -1))
+                if ((accessModPos > -1) && (openParPos > -1) && (closeParPos > -1))
                 {
                     //Check for comments.
                     if (commentCheck)
                     {
                         if (multiLineCommentCheck)
                         {
-                            if((starEndCommentPos < accessModPos) && (starEndCommentPos > -1))
+                            if ((starEndCommentPos < accessModPos) && (starEndCommentPos > -1))
                             {
-                                if(normalCommentPos > -1)
+                                if (normalCommentPos > -1)
                                 {
                                     if (normalCommentPos < closeParPos)
                                     {
@@ -182,7 +172,7 @@ namespace CSharpMetric
                         }
                         else
                         {
-                            if(normalCommentPos < closeParPos)
+                            if (normalCommentPos < closeParPos)
                             {
                                 //Case 2.
                             }
@@ -212,16 +202,162 @@ namespace CSharpMetric
         }
 
         /// <summary>
-        /// Determine if a line of code has functionality that could be incorporated into a prior line of code.
+        /// Determine number of functional lines of code.
         /// </summary>
         /// <param name="lineToCheck"></param>
         /// <returns></returns>
-        private Boolean aestheticCheck(string lineToCheck)
+        private int aestheticCheck(IList<string> fileLineByLine)
         {
-            Boolean checkVal = false;
+            Boolean multiLineCommentCheck = false;
+            int linesOfCode = fileLineByLine.Count;
+            int checkVal = 0;
+            Boolean isFunctional = true;
+            for (int lineParseCounter = 0; lineParseCounter <= linesOfCode; lineParseCounter++)
+            {
+                Boolean commentCheck = false;
+                int normalCommentPos = -1;
+                int starOpenCommentPos = -1;
+                int starEndCommentPos = -1;
+                //Set to true if a * / is found, update the main bool at the end of the loop
+                Boolean starEndCommentBool = false;
+                int semicolonPos = -1;
+                int closeBracketPos = -1;
+                
+                //We check to see if the method could be commented out.
+                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("//") > -1)
+                {
+                    commentCheck = true;
+                    normalCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("//");
+                }
+                if (multiLineCommentCheck)
+                {
+                    commentCheck = true;
+                }
+                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("/*") > -1)
+                {
+                    multiLineCommentCheck = true;
+                    commentCheck = true;
+                    starOpenCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("/*");
+                }
+                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("*/") > -1)
+                {
+                    starEndCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("*/");
+                    starEndCommentBool = true;
+                }
+                semicolonPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf(";");
 
+                char[] blankChars = { ' ', '}', '\n' };
+                string[] nonBlankContents = fileLineByLine.ElementAt(lineParseCounter).Split(blankChars);
+                Boolean blankCheck = true;
 
-            return checkVal;
+                //Determine if the line contains any characters besides spaces, close curlybraces and new lines.
+                foreach(var word in nonBlankContents)
+                {
+                    if(word != "")
+                    {
+                        blankCheck = false;
+                    }
+                }
+
+                //Case 1: Functional code, do not increment counter.
+                //Case 2: Line is commented out.
+                //Case 3: Line is part of a multiline comment.
+                //Case 4: Line has a comment after functional code.
+                //Case 5: Line has code after a multiline comment ends.
+                //Case 6: No comment, but the line is composed of only "}, ' ', \n"
+                if (blankCheck)
+                {
+                    //No code on the line, no functionality.
+                    isFunctional = false;
+                }
+                else
+                {
+                    if (multiLineCommentCheck)
+                    {
+                        if(starOpenCommentPos > -1)
+                        {
+                            //Multicomment begins.
+                            if((starOpenCommentPos > semicolonPos) || (starOpenCommentPos > closeBracketPos))
+                            {
+                                //Code is still functional, need to check for normal comments
+                                if (commentCheck)
+                                {
+                                    if ((normalCommentPos > semicolonPos) || (normalCommentPos > closeBracketPos))
+                                    {
+                                        //Comment is after code, still functional.
+                                    }
+                                    else
+                                    {
+                                        isFunctional = false;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                isFunctional = false;
+                            }
+                        }
+                        else
+                        {
+                            if(starEndCommentPos > -1)
+                            {
+                                if((starEndCommentPos > semicolonPos) || (starEndCommentPos > closeBracketPos))
+                                {
+                                    //Code is still functional, need to check for normal comments
+                                    if (commentCheck)
+                                    {
+                                        if ((normalCommentPos > semicolonPos) || (normalCommentPos > closeBracketPos))
+                                        {
+                                            //Comment is after code, still functional.
+                                        }
+                                        else
+                                        {
+                                            isFunctional = false;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    isFunctional = false;
+                                }
+                            }
+                            else
+                            {
+                                //Whole line is a comment.
+                                isFunctional = false;
+                            }
+                        }
+                    }
+                    else if (commentCheck)
+                    {
+                        if((normalCommentPos > semicolonPos) || (normalCommentPos > closeBracketPos))
+                        {
+                            //Comment is after code, still functional.
+                        }
+                        else
+                        {
+                            isFunctional = false;
+                        }
+                    }
+                    else
+                    {
+                        //No comments, line of code has functionality
+                    }
+                }
+
+                if (isFunctional)
+                {
+                    //The code is functional. 
+                }
+                else
+                {
+                    checkVal++;
+                    isFunctional = true;
+                }
+                
+            }
+
+            return fileLineByLine.Count - checkVal;
         }
 
         private int detectFunctionPoint(string lineToCheck)
