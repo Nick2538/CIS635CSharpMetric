@@ -1,18 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using Microsoft.CodeAnalysis;
 using Analysis;
 using System.IO;
 
@@ -55,10 +43,12 @@ namespace CodeMetrics
         {
             foreach (var file in RecurseDirectory(ProjectTextBox.Text, ".cs"))
             {
-                CodeAnalyzer analyzer = new CodeAnalyzer(file);
-                double avg = analyzer.AverageMethodSize();
-                Dictionary<string, int> usages = analyzer.MethodUsage();
-                Console.WriteLine();
+                CSharpCodeAnalyzer analyzer = new CSharpCodeAnalyzer(file);
+                foreach (var cls in analyzer.IterSubClasses()) {
+                    double avg = cls.AverageMethodSize();
+                    Dictionary<string, int> usages = cls.MethodUsage();
+                    Console.WriteLine();
+                }
             }
         }
     }
