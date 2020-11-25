@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.UI.Xaml;
@@ -27,6 +30,99 @@ namespace CSharpMetric
         public MainPage()
         {
             this.InitializeComponent();
+        }
+        
+        public class CSharpClassInterface
+        {
+            public string Name;
+            public CSharpSyntaxTree SyntaxTree { get; set; }
+            private List<ConstructorDeclarationSyntax> Constructors { get; set; }
+            private List<MethodDeclarationSyntax> Methods { get; set; }
+            public CSharpClassInterface(string filePathSyntaxTree)
+            {
+                Name = Path.GetFileNameWithoutExtension(filePathSyntaxTree);
+                SyntaxTree = (CSharpSyntaxTree)CSharpSyntaxTree.ParseText(File.ReadAllText(filePathSyntaxTree));
+                IEnumerable<ConstructorDeclarationSyntax> constructors = SyntaxTree.GetRoot()
+                    .DescendantNodes().
+                    OfType<ConstructorDeclarationSyntax>().ToList();
+                Constructors = new List<ConstructorDeclarationSyntax>(constructors);
+                IEnumerable<MethodDeclarationSyntax> methods = SyntaxTree.GetRoot()
+                    .DescendantNodes()
+                    .OfType<MethodDeclarationSyntax>().ToList();
+                Methods = new List<MethodDeclarationSyntax>(methods);
+            }
+
+            public int RecurseBlockStatementCount(BlockSyntax block)
+            {
+                int statements = block.Statements.Count;
+                foreach (var childBlock in block.DescendantNodes().OfType<BlockSyntax>().ToList())
+                {
+                    statements += RecurseBlockStatementCount(childBlock);
+                }
+                return statements;
+            }
+
+            public double AverageMethodSize()
+            {
+                int sum = 0;
+                foreach (var method in Methods)
+                {
+                    BlockSyntax body = method.Body;
+                    sum += RecurseBlockStatementCount(body);
+                }
+                if (Methods.Count == 0)
+                {
+                    return 0;
+                }
+                else
+                {
+                    return ((double)sum) / Methods.Count;
+                    
+                }
+            }
+
+            public int RecurseBlockUsageCount(BlockSyntax block, SyntaxToken methodID, int initialCount)
+            {
+                int usages = initialCount;
+                foreach (var statement in block.Statements)
+                {
+                    foreach (var token in statement.DescendantTokens())
+                    {
+                        try
+                        {
+                            if (token.Value.Equals(methodID.Value))
+                            {
+                                usages += 1;
+                            }
+                        }
+                        catch (NullReferenceException) // raised when parsing the 'null' C# token
+                        {
+                            // 'null' token parse, ignore it
+                        }
+                    }
+                }
+                foreach (var childBlock in block.DescendantNodes().OfType<BlockSyntax>().ToList())
+                {
+                    usages += RecurseBlockUsageCount(childBlock, methodID, 0);
+                }
+                return usages;
+            }
+
+            public Dictionary<string, int> MethodUsage()
+            {
+                Dictionary<string, int> usages = new Dictionary<string, int>();
+                foreach (var method in Methods)
+                {
+                    SyntaxToken methodID = method.Identifier;
+                    string methodName = methodID.ValueText;
+                    if (!usages.ContainsKey(methodName))
+                    {
+                        usages[methodName] = 0;
+                    }
+                    usages[methodName] = RecurseBlockUsageCount(method.Body, methodID, usages[methodName]);
+                }
+                return usages;
+            }
         }
 
         private async System.Threading.Tasks.Task fileChooserButton_ClickAsync()
@@ -59,11 +155,30 @@ namespace CSharpMetric
                 int methodCount = getMethodCount(fileLineByLine);
                 aestheticLOC.Text = aestheticCheck(fileLineByLine).ToString();
                 unadjustedFP.Text = countFunctionPoint(fileLineByLine).ToString();
+                numOfMethods.Text = methodCount.ToString();
+                CSharpClassInterface cSharpClassInterface1 = new CSharpClassInterface(fileToOpen.Path);
+                methodSize.Text = cSharpClassInterface1.AverageMethodSize().ToString();
+                if (checkBox1.IsChecked.Value)
+                {
+                    if (!File.Exists(csvPath.Text))
+                    {
+                        // Create a file to write to.
+                        using (StreamWriter sw = File.CreateText(csvPath.Text))
+                        {
+                            sw.WriteLine("LOC,FunctionalLOC,UFP,#OfMethods,AverageMethodSize,Usage");
+                        }
+                    }
+                    using (StreamWriter sw = File.AppendText(csvPath.Text))
+                    {
+                        sw.WriteLine(linesOfCode.ToString() + "," + aestheticLOC.Text + "," + unadjustedFP.Text + "," + methodCount.ToString() + "," + methodSize.Text + ",");
+                    }
+                }
+                else
+                {
+                    //User did not pick a file. They can click the button again.
+                }
 
-            }
-            else
-            {
-                //User did not pick a file. They can click the button again.
+
             }
         }
 
@@ -74,7 +189,7 @@ namespace CSharpMetric
             int linesOfCode = fileLineByLine.Count;
             int methodCount = 0;
 
-            for (int lineParseCounter = 0; lineParseCounter <= linesOfCode; lineParseCounter++)
+            for (int lineParseCounter = 0; lineParseCounter <= linesOfCode-1; lineParseCounter++)
             {
                 Boolean commentCheck = false;
                 int normalCommentPos = -1;
@@ -213,8 +328,9 @@ namespace CSharpMetric
             int linesOfCode = fileLineByLine.Count;
             int checkVal = 0;
             Boolean isFunctional = true;
-            for (int lineParseCounter = 0; lineParseCounter <= linesOfCode; lineParseCounter++)
+            for (int lineParseCounter = 0; lineParseCounter <= linesOfCode-1; lineParseCounter++)
             {
+                Boolean falsePositive = false;
                 Boolean commentCheck = false;
                 int normalCommentPos = -1;
                 int starOpenCommentPos = -1;
@@ -225,34 +341,39 @@ namespace CSharpMetric
                 int closeBracketPos = -1;
                 
                 //We check to see if the method could be commented out.
-                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("//") > -1)
+                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("//") > -1) //This is a false positive.
                 {
                     commentCheck = true;
-                    normalCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("//");
+                    normalCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("//"); //This is a false positive.
                 }
                 if (multiLineCommentCheck)
                 {
                     commentCheck = true;
                 }
-                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("/*") > -1)
+                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("/*") > -1) //This is a false positive.
                 {
                     multiLineCommentCheck = true;
                     commentCheck = true;
-                    starOpenCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("/*");
+                    starOpenCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("/*"); //This is a false positive.
                 }
-                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("*/") > -1)
+                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("*/") > -1) //This is a false positive.
                 {
-                    starEndCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("*/");
+                    starEndCommentPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf("*/"); //This is a false positive.
                     starEndCommentBool = true;
                 }
-                semicolonPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf(";");
+                semicolonPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf(";"); //This is a false positive.
 
                 char[] blankChars = { ' ', '}', '\n' };
                 string[] nonBlankContents = fileLineByLine.ElementAt(lineParseCounter).Split(blankChars);
                 Boolean blankCheck = true;
 
+                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf("//This is a false positive.") > -1)
+                {
+                    falsePositive = true;
+                }
+                int closeParPos = fileLineByLine.ElementAt(lineParseCounter).IndexOf(")");
                 //Determine if the line contains any characters besides spaces, close curlybraces and new lines.
-                foreach(var word in nonBlankContents)
+                foreach (var word in nonBlankContents)
                 {
                     if(word != "")
                     {
@@ -271,19 +392,22 @@ namespace CSharpMetric
                     //No code on the line, no functionality.
                     isFunctional = false;
                 }
-                else
+                else if (falsePositive)
+                {
+                    isFunctional = true;
+                }else
                 {
                     if (multiLineCommentCheck)
                     {
                         if(starOpenCommentPos > -1)
                         {
                             //Multicomment begins.
-                            if((starOpenCommentPos > semicolonPos) || (starOpenCommentPos > closeBracketPos))
+                            if (((starOpenCommentPos > semicolonPos) && (semicolonPos > -1)) || ((starOpenCommentPos > closeBracketPos) && (closeBracketPos > -1)) || ((starOpenCommentPos > closeParPos) && (closeParPos > -1)))
                             {
                                 //Code is still functional, need to check for normal comments
                                 if (commentCheck)
                                 {
-                                    if ((normalCommentPos > semicolonPos) || (normalCommentPos > closeBracketPos))
+                                    if (((normalCommentPos > semicolonPos) && (semicolonPos > -1)) || ((normalCommentPos > closeBracketPos) && (closeBracketPos > -1)) || ((normalCommentPos > closeParPos) && (closeParPos > -1)))
                                     {
                                         //Comment is after code, still functional.
                                     }
@@ -302,12 +426,12 @@ namespace CSharpMetric
                         {
                             if(starEndCommentPos > -1)
                             {
-                                if((starEndCommentPos > semicolonPos) || (starEndCommentPos > closeBracketPos))
+                                if(((starEndCommentPos < semicolonPos) && (semicolonPos > -1)) || ((starEndCommentPos < closeBracketPos) && (closeBracketPos > -1)) || ((starEndCommentPos < closeParPos) && (closeParPos > -1)))
                                 {
                                     //Code is still functional, need to check for normal comments
                                     if (commentCheck)
                                     {
-                                        if ((normalCommentPos > semicolonPos) || (normalCommentPos > closeBracketPos))
+                                        if (((normalCommentPos > semicolonPos) && (semicolonPos > -1)) || ((normalCommentPos > closeBracketPos) && (closeBracketPos > -1)) || ((normalCommentPos > closeParPos) && (closeParPos > -1)))
                                         {
                                             //Comment is after code, still functional.
                                         }
@@ -331,7 +455,7 @@ namespace CSharpMetric
                     }
                     else if (commentCheck)
                     {
-                        if((normalCommentPos > semicolonPos) || (normalCommentPos > closeBracketPos))
+                        if(((normalCommentPos > semicolonPos) && (semicolonPos > -1)) || ((normalCommentPos > closeBracketPos) && (closeBracketPos > -1)) || ((normalCommentPos > closeParPos) && (closeParPos > -1)))
                         {
                             //Comment is after code, still functional.
                         }
@@ -355,11 +479,17 @@ namespace CSharpMetric
                     checkVal++;
                     isFunctional = true;
                 }
+                if (starEndCommentBool)
+                {
+                    multiLineCommentCheck = false;
+                }
    
             }
 
             return fileLineByLine.Count - checkVal;
         }
+
+
 
         private int countFunctionPoint(IList<string> fileLineByLine)
         {
@@ -378,7 +508,7 @@ namespace CSharpMetric
             Boolean nickSuperDuperOverlyLongNamedFalsePositiveRemoverBooleanThingy = false;
             int linesOfCode = fileLineByLine.Count;
 
-            for (int lineParseCounter = 0; lineParseCounter <= linesOfCode; lineParseCounter++)
+            for (int lineParseCounter = 0; lineParseCounter <= linesOfCode-1; lineParseCounter++)
             {
                 //Reset Booleans
                 internalLogicFile = false;
@@ -386,6 +516,7 @@ namespace CSharpMetric
                 externalInput = false;
                 externalOutput = false;
                 externalInquiry = false;
+                nickSuperDuperOverlyLongNamedFalsePositiveRemoverBooleanThingy = false;
 
                 //Determine if line is an UFP. Only covering System.IO
                 if(fileLineByLine.ElementAt(lineParseCounter).IndexOf("nickSuperDuperOverlyLongNamedFalsePositiveRemoverBooleanThingyX01") > -1) //nickSuperDuperOverlyLongNamedFalsePositiveRemoverBooleanThingyX01
@@ -738,6 +869,10 @@ namespace CSharpMetric
                     externalInquiry = true;
                 }
                 if (fileLineByLine.ElementAt(lineParseCounter).IndexOf(".ReadLines(") > -1) //nickSuperDuperOverlyLongNamedFalsePositiveRemoverBooleanThingyX01
+                {
+                    externalInquiry = true;
+                }
+                if (fileLineByLine.ElementAt(lineParseCounter).IndexOf(".ReadLinesAsync(") > -1) //nickSuperDuperOverlyLongNamedFalsePositiveRemoverBooleanThingyX01
                 {
                     externalInquiry = true;
                 }

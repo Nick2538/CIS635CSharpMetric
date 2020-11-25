@@ -32,11 +32,13 @@
         </Grid.ColumnDefinitions>
         <Button x:Name="fileChooserButton" Content="Click To Choose A File" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="4" Height="44" HorizontalAlignment="Center" UseLayoutRounding="True" Width="500" Click="fileChooserButton_Click"/>
         <TextBox x:Name="LOCTextbox" Text="LOC Will Be displayed here" TextWrapping="Wrap" Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2"/>
-        <TextBox x:Name="aestheticLOC" Text="Aesthetic LOC Will be displayed here" TextWrapping="Wrap" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2"/>
+        <TextBox x:Name="aestheticLOC" Text="Functional LOC Will be displayed here" TextWrapping="Wrap" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2"/>
         <TextBox x:Name="unadjustedFP" Text="Unadjusted Function Point Count" TextWrapping="Wrap" Grid.Row="4" Grid.Column="2" Grid.ColumnSpan="2"/>
         <TextBox x:Name="numOfMethods" Text="# of methods" TextWrapping="Wrap" Grid.Row="5" Grid.Column="2" Grid.ColumnSpan="2"/>
         <TextBox x:Name="methodUsage" Text="Method Usage" TextWrapping="Wrap" Grid.Row="6" Grid.Column="2" Grid.ColumnSpan="2"/>
-        <TextBox x:Name="methodSize" Text="Method Size" TextWrapping="Wrap" Grid.Row="7" Grid.Column="2" Grid.ColumnSpan="2"/>
+        <TextBox x:Name="methodSize" Text="Average Method Size" TextWrapping="Wrap" Grid.Row="7" Grid.Column="2" Grid.ColumnSpan="2"/>
+        <CheckBox x:Name="checkBox1" Content="SaveToCSV" Grid.Column="1" Grid.Row="8"/>
+        <TextBox x:Name="csvPath" Text="" TextWrapping="Wrap" Grid.ColumnSpan="2" Grid.Column="2" Grid.Row="8" PlaceholderText="Put .CSV Filepath here"/>
 
 
     </Grid>
