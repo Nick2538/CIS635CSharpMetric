@@ -42,13 +42,9 @@ namespace CSharpMetric
             {
                 Name = Path.GetFileNameWithoutExtension(filePathSyntaxTree);
                 SyntaxTree = (CSharpSyntaxTree)CSharpSyntaxTree.ParseText(File.ReadAllText(filePathSyntaxTree));
-                IEnumerable<ConstructorDeclarationSyntax> constructors = SyntaxTree.GetRoot()
-                    .DescendantNodes().
-                    OfType<ConstructorDeclarationSyntax>().ToList();
+                IEnumerable<ConstructorDeclarationSyntax> constructors = SyntaxTree.GetRoot().DescendantNodes().OfType<ConstructorDeclarationSyntax>().ToList();
                 Constructors = new List<ConstructorDeclarationSyntax>(constructors);
-                IEnumerable<MethodDeclarationSyntax> methods = SyntaxTree.GetRoot()
-                    .DescendantNodes()
-                    .OfType<MethodDeclarationSyntax>().ToList();
+                IEnumerable<MethodDeclarationSyntax> methods = SyntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().ToList();
                 Methods = new List<MethodDeclarationSyntax>(methods);
             }
 
@@ -77,7 +73,6 @@ namespace CSharpMetric
                 else
                 {
                     return ((double)sum) / Methods.Count;
-                    
                 }
             }
 
@@ -125,7 +120,7 @@ namespace CSharpMetric
             }
         }
 
-        private async System.Threading.Tasks.Task fileChooserButton_ClickAsync()
+        public async System.Threading.Tasks.Task fileChooserButton_ClickAsync()
         {
             //This button is simple enough, it opens a file and
 
@@ -155,9 +150,11 @@ namespace CSharpMetric
                 int methodCount = getMethodCount(fileLineByLine);
                 aestheticLOC.Text = aestheticCheck(fileLineByLine).ToString();
                 unadjustedFP.Text = countFunctionPoint(fileLineByLine).ToString();
-                numOfMethods.Text = methodCount.ToString();
+                numOfMethods.Text = methodCount.ToString();                
                 CSharpClassInterface cSharpClassInterface1 = new CSharpClassInterface(fileToOpen.Path);
+                methodSize.Text = "Test";
                 methodSize.Text = cSharpClassInterface1.AverageMethodSize().ToString();
+                Dictionary<string, int> val1 = cSharpClassInterface1.MethodUsage();
                 if (checkBox1.IsChecked.Value)
                 {
                     if (!File.Exists(csvPath.Text))
@@ -170,7 +167,12 @@ namespace CSharpMetric
                     }
                     using (StreamWriter sw = File.AppendText(csvPath.Text))
                     {
-                        sw.WriteLine(linesOfCode.ToString() + "," + aestheticLOC.Text + "," + unadjustedFP.Text + "," + methodCount.ToString() + "," + methodSize.Text + ",");
+                        sw.Write(linesOfCode.ToString() + "," + aestheticLOC.Text + "," + unadjustedFP.Text + "," + methodCount.ToString() + "," + methodSize.Text + ",");
+                        foreach(KeyValuePair<string, int> valuePair in val1)
+                        {
+                            sw.Write("{0}:{1},", valuePair.Key, valuePair.Value);
+                        }
+                        sw.WriteLine("");
                     }
                 }
                 else
