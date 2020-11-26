@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.IO;
 
-namespace Analysis
+namespace CodeMetrics
 {
     public class CSharpClass
     {

@@ -1,139 +1,83 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
-using System.Windows;
-using Analysis;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Controls.Primitives;
-using Windows.UI.Xaml.Data;
-using Windows.UI.Xaml.Input;
-using Windows.UI.Xaml.Media;
-using Windows.UI.Xaml.Navigation;
+using System.Windows;
 
 namespace CodeMetrics
 {
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    /// Interaction logic for ClientWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class ClientWindow : Window
     {
-        private List<string> RecurseDirectory(string filepath, string extension)
-        {
-            List<string> files = new List<string>();
-            foreach (var file in Directory.GetFiles(filepath))
-            {
-                if (file.EndsWith(extension))
-                {
-                    files.Add(file);
-                }
-            }
-            foreach (var directory in Directory.GetDirectories(filepath))
-            {
-                foreach (var file in RecurseDirectory(directory, extension))
-                {
-                    if (file.EndsWith(extension))
-                    {
-                        files.Add(file);
-                    }
-                }
-            }
-            return files;
-        }
-
-        public MainWindow()
+        public ClientWindow()
         {
             InitializeComponent();
         }
 
-        /*private void MetricButton_Click(object sender, RoutedEventArgs e)
+        private void Button_Click(object sender, RoutedEventArgs e)
         {
-            foreach (var file in RecurseDirectory(ProjectTextBox.Text, ".cs"))
+            ErrorLabel.Content = string.Empty;
+
+            string filePath = null;
+            OpenFileDialog dialog = new OpenFileDialog();
+            dialog.InitialDirectory = "c:\\";
+            dialog.Filter = "C# Files (*.cs)|*.cs";
+            dialog.FilterIndex = 2;
+            dialog.RestoreDirectory = true;
+                
+            try
             {
-                CSharpCodeAnalyzer analyzer = new CSharpCodeAnalyzer(file);
-                foreach (var cls in analyzer.IterSubClasses()) {
-                    double avg = cls.AverageMethodSize();
-                    Dictionary<string, int> usages = cls.MethodUsage();
-                    Console.WriteLine();
-                }
-            }
-        } */
-
-        public async System.Threading.Tasks.Task fileChooserButton_ClickAsync()
-        {
-            //This button is simple enough, it opens a file and
-
-            /// Increment by one for each new line.
-            int linesOfCode = 1;
-
-            // Lines of code whose functionality can be given to a prior line of code.
-            int aestheticLinesOfCode = 0;
-
-            // Unadjusted function points. For the sake of automation it will be assumed that all Function Points are of the lowest complexity.
-            int functionPoints = 0;
-
-            var fileOpener = new Windows.Storage.Pickers.FileOpenPicker();
-            fileOpener.ViewMode = Windows.Storage.Pickers.PickerViewMode.List;
-            fileOpener.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Desktop;
-            fileOpener.FileTypeFilter.Add(".cs");
-            fileOpener.FileTypeFilter.Add(".txt");
-            Windows.Storage.StorageFile fileToOpen = await fileOpener.PickSingleFileAsync();
-            if (fileToOpen != null)
-            {
-                fileChooserButton.Content = fileToOpen.DisplayName;
-                //This gets the file as a list of strings, line by line. As a result we also get LOC in the broadest sense. 
-                IList<string> fileLineByLine = await Windows.Storage.FileIO.ReadLinesAsync(fileToOpen);
-                linesOfCode = fileLineByLine.Count;
-                LOCTextbox.Text = linesOfCode.ToString();
-                Boolean isAesthetic = false;
-                int methodCount = getMethodCount(fileLineByLine);
-                aestheticLOC.Text = aestheticCheck(fileLineByLine).ToString();
-                unadjustedFP.Text = countFunctionPoint(fileLineByLine).ToString();
-                numOfMethods.Text = methodCount.ToString();
-                CSharpCodeAnalyzer analyzer = new CSharpCodeAnalyzer(fileToOpen);
-                foreach (var cls in analyzer.IterSubClasses())
+                List<string> lines = null;
+                if (dialog.ShowDialog() == true)
                 {
-                    double avg = cls.AverageMethodSize();
-                    Dictionary<string, int> usages = cls.MethodUsage();
-                    Console.WriteLine();
-                }
-                methodSize.Text = "Test";
-                methodSize.Text = cSharpClassInterface1.AverageMethodSize().ToString();
-                Dictionary<string, int> val1 = cSharpClassInterface1.MethodUsage();
-                if (checkBox1.IsChecked.Value)
-                {
-                    if (!File.Exists(csvPath.Text))
-                    {
-                        // Create a file to write to.
-                        using (StreamWriter sw = File.CreateText(csvPath.Text))
-                        {
-                            sw.WriteLine("LOC,FunctionalLOC,UFP,#OfMethods,AverageMethodSize,Usage");
-                        }
-                    }
-                    using (StreamWriter sw = File.AppendText(csvPath.Text))
-                    {
-                        sw.Write(linesOfCode.ToString() + "," + aestheticLOC.Text + "," + unadjustedFP.Text + "," + methodCount.ToString() + "," + methodSize.Text + ",");
-                        foreach (KeyValuePair<string, int> valuePair in val1)
-                        {
-                            sw.Write("{0}:{1},", valuePair.Key, valuePair.Value);
-                        }
-                        sw.WriteLine("");
-                    }
+                    //Get the path of specified file
+                    filePath = dialog.FileName;
+
+                    lines = File.ReadLines(filePath).ToList();
                 }
                 else
                 {
-                    //User did not pick a file. They can click the button again.
+                    throw new IOException();
                 }
 
+                CSharpCodeAnalyzer analyzer = new CSharpCodeAnalyzer(filePath);
+                CSharpClass cls = analyzer.IterSubClasses().First();
 
+                AestheticLinesOfCodeTextBox.Text = aestheticCheck(lines).ToString();
+                AverageMethodSizeTextBox.Text = cls.AverageMethodSize().ToString();
+                LinesOfCodeTextBox.Text = lines.Count.ToString();
+                NumberOfMethodsTextBox.Text = getMethodCount(lines).ToString();
+                UnadjustedFunctionPointsTextBox.Text = countFunctionPoint(lines).ToString();
+
+                Dictionary<string, int> methodUsage = cls.MethodUsage();
+                foreach (var key in methodUsage.Keys)
+                {
+                    MethodUsageListBox.Items.Add(
+                        string.Format(
+                            "Method \"{0}\": {1}", key, methodUsage[key]
+                        )
+                    );
+                }
+
+            } 
+            catch (IOException)
+            {
+                PrintErrorMessage("Error: A file issue occurred!");
             }
+        }
+
+        private void PrintErrorMessage(string err)
+        {
+            AestheticLinesOfCodeTextBox.Text = string.Empty;
+            AverageMethodSizeTextBox.Text = string.Empty;
+            LinesOfCodeTextBox.Text = string.Empty;
+            NumberOfMethodsTextBox.Text = string.Empty;
+            UnadjustedFunctionPointsTextBox.Text = string.Empty;
+            MethodUsageListBox.Items.Clear();
+            ErrorLabel.Content = err;
         }
 
         private int aestheticCheck(IList<string> fileLineByLine)
@@ -993,12 +937,5 @@ namespace CodeMetrics
             }
             return functionPointCounter;
         }
-
-        private void fileChooserButton_Click(object sender, RoutedEventArgs e)
-        {
-            fileChooserButton_ClickAsync();
-        }
-
-
     }
 }
